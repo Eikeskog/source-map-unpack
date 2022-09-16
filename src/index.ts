@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
-import mkdirp from 'mkdirp';
 import * as chalk from 'chalk';
 import * as minimist from 'minimist';
 import { SourceMapConsumer } from 'source-map';
@@ -50,13 +49,32 @@ try {
   SourceMapConsumer.with(mapFile, null, (consumer: SourceMapConsumer) => {
     console.log(chalk.green(`Unpacking 🛍  your source maps 🗺`));
     const sources = (consumer as any).sources;
+
     sources.forEach((source: string) => {
       const WEBPACK_SUBSTRING_INDEX = 11;
       const content = consumer.sourceContentFor(source) as string;
-      const filePath = `${process.cwd()}/${projectNameInput}/${source.substring(
-        WEBPACK_SUBSTRING_INDEX,
-      )}`;
-      mkdirp.sync(dirname(filePath));
+
+      let relativePath = source.substring(WEBPACK_SUBSTRING_INDEX);
+
+      const isExternal = relativePath.startsWith('external')
+        || relativePath.startsWith('webpack')
+        || relativePath.startsWith('node_modules');
+
+      if (isExternal) {
+        return;
+      }
+
+      const fileExtension = relativePath.split('.').pop();
+
+      if (fileExtension?.includes('?')) {
+        relativePath = relativePath.split('?')[0];
+      }
+
+      const filePath = `${process.cwd()}/${projectNameInput}/${relativePath}`;
+
+      console.log(chalk.green(`Unpacking ${filePath}`));
+
+      fs.mkdirSync(dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, content);
     });
     console.log(chalk.green('🎉  All done! Enjoy exploring your code 💻'));
